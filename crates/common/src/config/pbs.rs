@@ -62,6 +62,9 @@ pub struct PbsConfig {
     /// How late in the slot we consider to be "late"
     #[serde(default = "default_u64::<LATE_IN_SLOT_TIME_MS>")]
     pub late_in_slot_time_ms: u64,
+    /// enable preconf_mode to select only targeted relay
+    #[serde(default = "default_bool::<false>")]
+    pub preconf_mode: bool,
 }
 
 impl PbsConfig {

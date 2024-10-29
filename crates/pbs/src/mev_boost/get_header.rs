@@ -20,7 +20,7 @@ use cb_common::{
 use futures::future::join_all;
 use reqwest::{header::USER_AGENT, StatusCode};
 use tokio::time::sleep;
-use tracing::{debug, error, warn, Instrument};
+use tracing::{info, debug, error, warn, Instrument};
 use url::Url;
 
 use crate::{
@@ -58,7 +58,7 @@ pub async fn get_header<S: BuilderApiState>(
     let mut send_headers = HeaderMap::new();
     send_headers.insert(HEADER_SLOT_UUID_KEY, HeaderValue::from_str(&slot_uuid.to_string())?);
     send_headers.insert(USER_AGENT, get_user_agent_with_version(&req_headers)?);
-
+    let preconf_mode = state.pbs_config().preconf_mode;
     let relays = state.relays();
     let mut handles = Vec::with_capacity(relays.len());
     for relay in relays.iter() {
@@ -75,18 +75,42 @@ pub async fn get_header<S: BuilderApiState>(
 
     let results = join_all(handles).await;
     let mut relay_bids = Vec::with_capacity(relays.len());
+    let mut target_relay_bid = Vec::new(); // To store bid from target relay, if any
+
     for (i, res) in results.into_iter().enumerate() {
         let relay_id = relays[i].id.as_ref();
 
         match res {
-            Ok(Some(res)) => relay_bids.push(res),
+            Ok(Some(res)) => {
+                // Log the relay ID and the bid response
+                info!("Received bid from relay: {}. Bid details: {:?}", relay_id, res);
+
+                // Track bids from all relays
+                relay_bids.push(res.clone());
+
+                // Specially track bids from the target relay
+                if relay_id == "ethgas" {
+                    target_relay_bid.push(res);
+                }
+            }
             Ok(_) => {}
             Err(err) if err.is_timeout() => error!(err = "Timed Out", relay_id),
             Err(err) => error!(?err, relay_id),
         }
     }
 
-    Ok(state.add_bids(params.slot, relay_bids))
+    info!("preconf_mode: {}",preconf_mode);
+    // Determine which bids to use
+    let final_bids = if !preconf_mode || target_relay_bid.is_empty() {
+        info!("Using all bids due to preconf_mode being false or no targeted preconf relay found.");
+        relay_bids
+    } else {
+        info!("Using bid from targeted relay only.");
+        target_relay_bid
+    };
+    info!("Total bids received for slot {}: {}", params.slot, final_bids.len());
+
+    Ok(state.add_bids(params.slot, final_bids))
 }
 
 #[tracing::instrument(skip_all, name = "handler", fields(relay_id = relay.id.as_ref()))]
