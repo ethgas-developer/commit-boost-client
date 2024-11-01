@@ -5,6 +5,9 @@ A new Ethereum validator sidecar focused on standardizing the last mile of commu
 [Docs](https://commit-boost.github.io/commit-boost-client/) |
 [Twitter](https://x.com/Commit_Boost)
 
+## For ETHGas users
+The PBS module is slightly modified to tailor to the ETHGas preconf flow. Please refer to [ethgas-preconf-commit-boost-module](https://github.com/ethgas-developer/ethgas-preconf-commit-boost-module) for explanation and instructions.
+
 ## Overview
 Commit-Boost is a modular sidecar that allows Ethereum validators to opt-in to different commitment protocols
 
